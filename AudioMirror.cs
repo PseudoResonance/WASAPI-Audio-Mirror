@@ -145,7 +145,7 @@ namespace WASAPI_Audio_Mirror
                             MMDevice device = enumerator.GetDevice(id);
                             if (device != null && device.DeviceState == DeviceState.Active)
                             {
-                                WasapiOut output = new WasapiOut(true, AudioClientShareMode.Shared, 10);
+                                WasapiOut output = new WasapiOut(true, AudioClientShareMode.Shared, 5);
                                 output.Device = device;
                                 output.Initialize(source);
                                 output.Play();
