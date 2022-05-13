@@ -11,6 +11,7 @@ namespace WASAPI_Audio_Mirror
         private static ToolStripMenuItem inputItem = null;
         private static ToolStripMenuItem outputItem = null;
         private static ToolStripMenuItem pauseItem = null;
+        private static ToolStripMenuItem restartItem = null;
         private static ToolStripMenuItem exitItem = null;
 
         private static CancellationTokenSource cts = new CancellationTokenSource();
@@ -52,6 +53,10 @@ namespace WASAPI_Audio_Mirror
             pauseItem.Click += new EventHandler(onPause);
             pauseItem.Name = "Pause";
             trayMenu.Items.Add(pauseItem);
+            restartItem = new ToolStripMenuItem("Restart Mirror");
+            restartItem.Click += new EventHandler(onRestart);
+            restartItem.Name = "Restart Mirror";
+            trayMenu.Items.Add(restartItem);
             exitItem = new ToolStripMenuItem("Exit");
             exitItem.Click += new EventHandler(onExit);
             exitItem.Name = "Exit";
@@ -70,6 +75,7 @@ namespace WASAPI_Audio_Mirror
         {
             if (paused)
             {
+                System.Diagnostics.Debug.WriteLine("Resuming mirror");
                 paused = false;
                 pauseItem.Name = "Pause";
                 pauseItem.Text = "Pause";
@@ -78,12 +84,20 @@ namespace WASAPI_Audio_Mirror
             }
             else
             {
+                System.Diagnostics.Debug.WriteLine("Pausing mirror");
                 paused = true;
                 pauseItem.Name = "Resume";
                 pauseItem.Text = "Resume";
                 pauseItem.CheckState = CheckState.Checked;
                 exclusiveFactory.StartNew(() => audioMirror.pauseMirror());
             }
+        }
+
+        private static void onRestart(object? sender, EventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("Restarting mirror");
+            exclusiveFactory.StartNew(() => audioMirror.stopMirror());
+            exclusiveFactory.StartNew(() => audioMirror.startMirror());
         }
 
         private static void onExit(object? sender, EventArgs e)
