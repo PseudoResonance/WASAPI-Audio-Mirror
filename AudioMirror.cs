@@ -40,7 +40,7 @@ namespace WASAPI_Audio_Mirror
                 {
                     capture = new WasapiLoopbackCapture();
                     MMDevice device = enumerator.GetDevice(settings.selectedInputDeviceId);
-                    if (device != null && device.DeviceState == DeviceState.Active)
+                    if (device.DeviceState == DeviceState.Active)
                     {
                         System.Diagnostics.Debug.WriteLine("Starting audio mirror");
                         capture.Device = device;
@@ -142,16 +142,22 @@ namespace WASAPI_Audio_Mirror
                     {
                         if (!outputStrings.Contains(id))
                         {
-                            MMDevice device = enumerator.GetDevice(id);
-                            if (device != null && device.DeviceState == DeviceState.Active)
+                            try
                             {
-                                WasapiOut output = new WasapiOut(true, AudioClientShareMode.Shared, 5);
-                                output.Device = device;
-                                output.Initialize(source);
-                                output.Play();
-                                outputs.Add(output);
-                                outputStrings.Add(id);
+                                System.Diagnostics.Debug.WriteLine("Searching for: " + id);
+                                MMDevice device = enumerator.GetDevice(id);
+                                System.Diagnostics.Debug.WriteLine("Found Name: " + device.FriendlyName + " State: " + device.DeviceState.ToString());
+                                if (device.DeviceState == DeviceState.Active)
+                                {
+                                    WasapiOut output = new WasapiOut(true, AudioClientShareMode.Shared, 5);
+                                    output.Device = device;
+                                    output.Initialize(source);
+                                    output.Play();
+                                    outputs.Add(output);
+                                    outputStrings.Add(id);
+                                }
                             }
+                            catch (Exception) { }
                         }
                     }
                 }

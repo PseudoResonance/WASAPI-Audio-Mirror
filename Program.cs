@@ -1,4 +1,5 @@
 using CSCore.CoreAudioAPI;
+using Microsoft.Win32;
 using System.Text.Json;
 
 namespace WASAPI_Audio_Mirror
@@ -41,8 +42,11 @@ namespace WASAPI_Audio_Mirror
             outputItem = new ToolStripMenuItem("Output Audio Device");
             outputItem.Name = "Output Audio Device";
             findAudioDevices();
-            exclusiveFactory.StartNew(() => audioMirror.startMirror());
-            exclusiveFactory.StartNew(() => audioMirror.updateOutputs());
+            if (checkReady())
+            {
+                exclusiveFactory.StartNew(() => audioMirror.startMirror());
+                exclusiveFactory.StartNew(() => audioMirror.updateOutputs());
+            }
             deviceNotification.DeviceAdded += (s, e) => { updateDevices = true; exclusiveFactory.StartNew(() => audioMirror.updateOutputs()); };
             deviceNotification.DeviceRemoved += (s, e) => { updateDevices = true; exclusiveFactory.StartNew(() => audioMirror.updateOutputs()); };
             deviceNotification.DeviceStateChanged += (s, e) => { updateDevices = true; exclusiveFactory.StartNew(() => audioMirror.updateOutputs()); };
@@ -67,8 +71,81 @@ namespace WASAPI_Audio_Mirror
             trayIcon.Visible = true;
             trayIcon.ContextMenuStrip = trayMenu;
 
+            SystemEvents.PowerModeChanged += onPowerModeChange;
+
             Application.ApplicationExit += new EventHandler(onExit);
             Application.Run();
+        }
+
+        private static bool checkReady()
+        {
+            int tries = 0;
+            bool foundInput = false;
+            bool foundOutput = false;
+            while (true)
+            {
+                tries++;
+                try
+                {
+                    MMDevice device = deviceEnumerator.GetDevice(settings.selectedInputDeviceId);
+                    if (device.DeviceState == DeviceState.Active)
+                    {
+                        foundInput = true;
+                        break;
+                    }
+                }
+                catch (Exception) { }
+                if (tries >= 10)
+                {
+                    break;
+                }
+                Thread.Sleep(5000);
+            }
+            if (foundInput)
+            {
+                tries = 0;
+                while (true)
+                {
+                    tries++;
+                    foreach (string id in settings.selectedOutputDeviceIds)
+                    {
+                        try
+                        {
+                            MMDevice device = deviceEnumerator.GetDevice(id);
+                            if (device.DeviceState == DeviceState.Active)
+                            {
+                                foundOutput = true;
+                                break;
+                            }
+                        }
+                        catch (Exception) { }
+                    }
+                    if (foundOutput || tries >= 10)
+                    {
+                        break;
+                    }
+                    Thread.Sleep(5000);
+                }
+                if (foundOutput)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static void onPowerModeChange(object? sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Resume)
+            {
+                System.Diagnostics.Debug.WriteLine("Detecting system resume from sleep, restarting mirror");
+                exclusiveFactory.StartNew(() => audioMirror.stopMirror());
+                if (checkReady())
+                {
+                    exclusiveFactory.StartNew(() => audioMirror.startMirror());
+                    exclusiveFactory.StartNew(() => audioMirror.updateOutputs());
+                }
+            }
         }
 
         private static void onPause(object? sender, EventArgs e)
@@ -98,6 +175,7 @@ namespace WASAPI_Audio_Mirror
             System.Diagnostics.Debug.WriteLine("Restarting mirror");
             exclusiveFactory.StartNew(() => audioMirror.stopMirror());
             exclusiveFactory.StartNew(() => audioMirror.startMirror());
+            exclusiveFactory.StartNew(() => audioMirror.updateOutputs());
         }
 
         private static void onExit(object? sender, EventArgs e)
